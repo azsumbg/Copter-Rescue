@@ -126,6 +126,13 @@ ID2D1Bitmap* bmpSupply[27]{ nullptr };
 
 ///////////////////////////////////////////
 
+dll::Creature Copter;
+dirs copter_draw_dir = dirs::right;
+
+std::vector<dll::Asset> vCivilians;
+
+///////////////////////////////////////////
+
 template<typename T>concept HasRelease = requires(T var)
 {
     var.Release();
@@ -194,9 +201,11 @@ void InitGame()
     name_set = false;
     ///////////////////////////////////////
 
+    ClearMem(&Copter);
+    Copter = dll::CreatureFactory(hero, static_cast<float>(Rand(20, 700)), 70.0f);
 
-
-
+    if (!vCivilians.empty())
+        for (int i = 0; i < vCivilians.size(); ++i)ClearMem(&vCivilians[i]);
 }
 
 void GameOver()
@@ -415,8 +424,33 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
         }
         break;
 
+    case WM_KEYDOWN:
+        if(Copter)
+            switch (wParam)
+            {
+            case VK_LEFT:
+                Copter->dir = dirs::left;
+                copter_draw_dir = dirs::left;
+                break;
 
+            case VK_RIGHT:
+                Copter->dir = dirs::right;
+                copter_draw_dir = dirs::right;
+                break;
 
+            case VK_UP:
+                Copter->dir = dirs::up;
+                break;
+
+            case VK_DOWN:
+                Copter->dir = dirs::down;
+                break;
+
+            case VK_SPACE:
+                Copter->dir = dirs::stop;
+                break;
+            }
+        break;
 
 
     default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
@@ -726,7 +760,6 @@ void CreateResources()
 
 /////////////////////////////////////////
 
-
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
     bIns = hInstance;
@@ -760,10 +793,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
     ///////////////////////////////////////////////////////////////
 
+        if (Copter)Copter->Move((float)(level));
 
-
-
-
+        if (vCivilians.size() < level + 2 && Rand(0, 1000) == 666)vCivilians.push_back(dll::ObjectFactory(civilian,
+            static_cast<float>(Rand(0, 750)), static_cast<float>(Rand((int)(ground - 100.0f), (int)(ground)))));
+        
+        if (!vCivilians.empty())for (int i = 0; i < vCivilians.size(); ++i)vCivilians[i]->Move((float)(level));
 
 
 
@@ -802,12 +837,33 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, txtFormat, b3TxtRect, hgltBrush);
 
         }
-        //////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////
 
+        if (Copter)
+        {
+            int current_frame = Copter->GetFrame();
 
+            switch (copter_draw_dir)
+            {
+            case dirs::right:
+                Draw->DrawBitmap(bmpHeroR[current_frame], Resizer(bmpHeroR[current_frame], Copter->start.x, Copter->start.y));
+                break;
 
+            case dirs::left:
+                Draw->DrawBitmap(bmpHeroL[current_frame], Resizer(bmpHeroL[current_frame], Copter->start.x, Copter->start.y));
+                break;
+            }
+        }
 
+        if (!vCivilians.empty())
+        {
+            for (int i = 0; i < vCivilians.size(); ++i)
+            {
+                int aframe = vCivilians[i]->GetFrame();
 
+                Draw->DrawBitmap(bmpCivil[aframe], Resizer(bmpCivil[aframe], vCivilians[i]->start.x, vCivilians[i]->start.y));
+            }
+        }
 
 
 
