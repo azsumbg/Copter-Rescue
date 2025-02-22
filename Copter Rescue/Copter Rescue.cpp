@@ -113,7 +113,8 @@ IDWriteTextFormat* midFormat{ nullptr };
 IDWriteTextFormat* bigFormat{ nullptr };
 
 ID2D1Bitmap* bmpBullet{ nullptr };
-ID2D1Bitmap* bmpCivil[46]{ nullptr };
+ID2D1Bitmap* bmpCivilL[46]{ nullptr };
+ID2D1Bitmap* bmpCivilR[46]{ nullptr };
 ID2D1Bitmap* bmpEvil1[12]{ nullptr };
 ID2D1Bitmap* bmpEvil2[4]{ nullptr };
 ID2D1Bitmap* bmpEvil3[4]{ nullptr };
@@ -170,7 +171,8 @@ void ClearResources()
     if (!ClearMem(&bigFormat))LogErr(L"Error clearing bigFormat");
 
     if (!ClearMem(&bmpBullet))LogErr(L"Error clearing bmpBullet");
-    for (int i = 0; i < 46; ++i)if (!ClearMem(&bmpCivil[i]))LogErr(L"Error clearing bmpCivil");
+    for (int i = 0; i < 46; ++i)if (!ClearMem(&bmpCivilR[i]))LogErr(L"Error clearing bmpCivil");
+    for (int i = 0; i < 46; ++i)if (!ClearMem(&bmpCivilL[i]))LogErr(L"Error clearing bmpCivil");
     for (int i = 0; i < 12; ++i)if (!ClearMem(&bmpEvil1[i]))LogErr(L"Error clearing bmpEvil1");
     for (int i = 0; i < 4; ++i)if (!ClearMem(&bmpEvil2[i]))LogErr(L"Error clearing bmpEvil2");
     for (int i = 0; i < 4; ++i)if (!ClearMem(&bmpEvil3[i]))LogErr(L"Error clearing bmpEvil3");
@@ -560,19 +562,35 @@ void CreateResources()
             }
             for (int i = 0; i < 46; ++i)
             {
-                wchar_t name[100] = L".\\res\\img\\civil\\";
+                wchar_t name[100] = L".\\res\\img\\civil\\l\\";
                 wchar_t add[5] = L"\0";
                 wsprintf(add, L"%d", i);
                 wcscat_s(name, add);
                 wcscat_s(name, L".png");
                 
-                bmpCivil[i] = Load(name, Draw);
-                if (!bmpCivil[i])
+                bmpCivilL[i] = Load(name, Draw);
+                if (!bmpCivilL[i])
                 {
-                    LogErr(L"Error loading bmpCivil !");
+                    LogErr(L"Error loading bmpCivilL !");
                     ErrExit(eD2D);
                 }
             }
+            for (int i = 0; i < 46; ++i)
+            {
+                wchar_t name[100] = L".\\res\\img\\civil\\r\\";
+                wchar_t add[5] = L"\0";
+                wsprintf(add, L"%d", i);
+                wcscat_s(name, add);
+                wcscat_s(name, L".png");
+
+                bmpCivilR[i] = Load(name, Draw);
+                if (!bmpCivilR[i])
+                {
+                    LogErr(L"Error loading bmpCivilR !");
+                    ErrExit(eD2D);
+                }
+            }
+
             for (int i = 0; i < 12; ++i)
             {
                 wchar_t name[100] = L".\\res\\img\\evil1\\";
@@ -795,12 +813,14 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
         if (Copter)Copter->Move((float)(level));
 
-        if (vCivilians.size() < level + 2 && Rand(0, 1000) == 666)vCivilians.push_back(dll::ObjectFactory(civilian,
-            static_cast<float>(Rand(0, 750)), static_cast<float>(Rand((int)(ground - 100.0f), (int)(ground)))));
+        if (vCivilians.size() < level + 2 && Rand(0, 500) == 66)vCivilians.push_back(dll::ObjectFactory(civilian,
+            static_cast<float>(Rand(0, 750)), static_cast<float>(Rand((int)(ground - 150.0f), (int)(ground)))));
         
-        if (!vCivilians.empty())for (int i = 0; i < vCivilians.size(); ++i)vCivilians[i]->Move((float)(level));
-
-
+        if (!vCivilians.empty() && Rand(0, 10) == 6)
+        {
+            int which = Rand(0, vCivilians.size() - 1);
+            vCivilians[which]->Move((float)(level));
+        }
 
 
 
@@ -861,7 +881,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             {
                 int aframe = vCivilians[i]->GetFrame();
 
-                Draw->DrawBitmap(bmpCivil[aframe], Resizer(bmpCivil[aframe], vCivilians[i]->start.x, vCivilians[i]->start.y));
+                if (vCivilians[i]->dir == dirs::left)
+                    Draw->DrawBitmap(bmpCivilR[aframe], Resizer(bmpCivilR[aframe], vCivilians[i]->start.x, 
+                        vCivilians[i]->start.y));
+                else 
+                    Draw->DrawBitmap(bmpCivilL[aframe], Resizer(bmpCivilL[aframe], vCivilians[i]->start.x,
+                        vCivilians[i]->start.y));
             }
         }
 
