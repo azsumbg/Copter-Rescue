@@ -130,7 +130,15 @@ ID2D1Bitmap* bmpSupply[27]{ nullptr };
 dll::Creature Copter;
 dirs copter_draw_dir = dirs::right;
 
+int good_ammo = 0;
+int civils_saved = 0;
+
 std::vector<dll::Asset> vCivilians;
+std::vector<dll::Asset> vGoodShots;
+std::vector<dll::Asset> vBadShots;
+std::vector<dll::Asset> vSupplies;
+
+std::vector<dll::Creature> vEvils;
 
 ///////////////////////////////////////////
 
@@ -198,6 +206,8 @@ void InitGame()
     score = 0;
     mins = 0;
     secs = 180;
+    good_ammo = 0;
+    civils_saved = 0;
 
     wcscpy_s(current_player, L"One Player");
     name_set = false;
@@ -208,6 +218,23 @@ void InitGame()
 
     if (!vCivilians.empty())
         for (int i = 0; i < vCivilians.size(); ++i)ClearMem(&vCivilians[i]);
+    vCivilians.clear();
+
+    if (!vGoodShots.empty())
+        for (int i = 0; i < vGoodShots.size(); ++i)ClearMem(&vGoodShots[i]);
+    vGoodShots.clear();
+
+    if (!vBadShots.empty())
+        for (int i = 0; i < vBadShots.size(); ++i)ClearMem(&vBadShots[i]);
+    vBadShots.clear();
+
+    if (!vSupplies.empty())
+        for (int i = 0; i < vSupplies.size(); ++i)ClearMem(&vSupplies[i]);
+    vSupplies.clear();
+
+    if (!vEvils.empty())
+        for (int i = 0; i < vEvils.size(); ++i)ClearMem(&vEvils[i]);
+    vEvils.clear();
 }
 
 void GameOver()
@@ -809,26 +836,82 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             Draw->EndDraw();
             continue;
         }
-    ///////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////
 
         if (Copter)Copter->Move((float)(level));
 
         if (vCivilians.size() < level + 2 && Rand(0, 500) == 66)vCivilians.push_back(dll::ObjectFactory(civilian,
-            static_cast<float>(Rand(0, 750)), static_cast<float>(Rand((int)(ground - 150.0f), (int)(ground)))));
-        
+            static_cast<float>(Rand(0, 750)), static_cast<float>(Rand((int)(ground - 150.0f), (int)(ground - 60.0f)))));
+
         if (!vCivilians.empty() && Rand(0, 10) == 6)
         {
-            int which = Rand(0, vCivilians.size() - 1);
+            int which = Rand(0, (int)(vCivilians.size()) - 1);
             vCivilians[which]->Move((float)(level));
         }
 
+        if (vEvils.size() < level + 2 && Rand(0, 500) == 66)
+        {
+            switch (Rand(0, 2))
+            {
+            case 0:
+                vEvils.push_back(dll::CreatureFactory(evil1,
+                    static_cast<float>(Rand(0, 650)), static_cast<float>(Rand((int)(ground - 150.0f), (int)(ground - 48.0f)))));
+                break;
+
+            case 1:
+                vEvils.push_back(dll::CreatureFactory(evil2,
+                    static_cast<float>(Rand(0, 700)), static_cast<float>(Rand((int)(ground - 150.0f), (int)(ground - 90.0f)))));
+                break;
+
+            case 2:
+                vEvils.push_back(dll::CreatureFactory(evil3,
+                    static_cast<float>(Rand(0, 700)), static_cast<float>(Rand((int)(ground - 150.0f), (int)(ground - 90.0f)))));
+                break;
+            }
+        }
+
+        if (!vEvils.empty() && Copter && !vCivilians.empty())
+        {
+            for (std::vector<dll::Creature>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
+            {
+                FPOINT CopterPos{ Copter->start.x,Copter->start.y };
+                cont::CONTAINER<FPOINT>CivsPos(vCivilians.size());
+                for (int i = 0; i < vCivilians.size(); i++)CivsPos.push_back(FPOINT(vCivilians[i]->start.x, 
+                    vCivilians[i]->start.y));
+
+                if ((*evil)->AIShoot(CivsPos, FPOINT(Copter->start.x, Copter->start.y)))
+                {
+                    vBadShots.push_back(dll::ObjectFactory(bullet, (*evil)->center.x, (*evil)->center.y, Copter->center.x,
+                        Copter->center.y));
+                }
+                else (*evil)->Move((float)(level));
+            }
+        }
+        else if (!vEvils.empty() && Copter)
+        {
+            for (std::vector<dll::Creature>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
+            {
+                if (Rand(0, 150) == 66)
+                    vBadShots.push_back(dll::ObjectFactory(bullet, (*evil)->center.x, (*evil)->center.y, Copter->center.x,
+                        Copter->center.y));
+            }
+        }
+
+        if (!vBadShots.empty())
+        {
+            for (std::vector<dll::Asset>::iterator shot = vBadShots.begin(); shot < vBadShots.end(); shot++)
+            {
+                if (!(*shot)->Move((float)(level)))
+                {
+                    (*shot)->Release();
+                    vBadShots.erase(shot);
+                    break;
+                }
+            }
+        }
 
 
-
-
-
-
-    // DRAW THINGS *************************************************
+        // DRAW THINGS *************************************************
         Draw->BeginDraw();
         Draw->DrawBitmap(bmpField[field_frame], D2D1::RectF(0, 0, scr_width, scr_height));
         --field_delay;
@@ -857,7 +940,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             else Draw->DrawTextW(L"ПОМОЩ ЗА ИГРАТА", 16, txtFormat, b3TxtRect, hgltBrush);
 
         }
-    //////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////
 
         if (Copter)
         {
@@ -882,14 +965,40 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 int aframe = vCivilians[i]->GetFrame();
 
                 if (vCivilians[i]->dir == dirs::left)
-                    Draw->DrawBitmap(bmpCivilR[aframe], Resizer(bmpCivilR[aframe], vCivilians[i]->start.x, 
+                    Draw->DrawBitmap(bmpCivilR[aframe], Resizer(bmpCivilR[aframe], vCivilians[i]->start.x,
                         vCivilians[i]->start.y));
-                else 
+                else
                     Draw->DrawBitmap(bmpCivilL[aframe], Resizer(bmpCivilL[aframe], vCivilians[i]->start.x,
                         vCivilians[i]->start.y));
             }
         }
 
+        if (!vEvils.empty())
+        {
+            for (int i = 0; i < vEvils.size(); ++i)
+            {
+                int aframe = vEvils[i]->GetFrame();
+
+                switch (vEvils[i]->GetType())
+                {
+                case evil1:
+                    Draw->DrawBitmap(bmpEvil1[aframe], Resizer(bmpEvil1[aframe], vEvils[i]->start.x, vEvils[i]->start.y));
+                    break;
+
+                case evil2:
+                    Draw->DrawBitmap(bmpEvil2[aframe], Resizer(bmpEvil2[aframe], vEvils[i]->start.x, vEvils[i]->start.y));
+                    break;
+
+                case evil3:
+                    Draw->DrawBitmap(bmpEvil3[aframe], Resizer(bmpEvil3[aframe], vEvils[i]->start.x, vEvils[i]->start.y));
+                    break;
+                }
+            }
+        }
+
+        if (!vBadShots.empty())
+            for (int i = 0; i < vBadShots.size(); ++i)Draw->DrawBitmap(bmpBullet, D2D1::RectF(vBadShots[i]->start.x,
+                vBadShots[i]->start.y, vBadShots[i]->end.x, vBadShots[i]->end.y));
 
 
     /////////////////////////////////////////////////////////////////

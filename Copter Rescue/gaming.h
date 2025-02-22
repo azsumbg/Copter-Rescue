@@ -138,9 +138,9 @@ namespace dll
 
 		float Distance(FPOINT myPoint, FPOINT refPoint);
 
-		FPOINT Sort(cont::CONTAINER<FPOINT> refContainer);
+		FPOINT Sort(cont::CONTAINER<FPOINT>& refContainer);
 
-		bool AIShoot(cont::CONTAINER<FPOINT> civs, FPOINT Hero_pos, FPOINT where_to_shoot);
+		bool AIShoot(cont::CONTAINER<FPOINT>& civs, FPOINT Hero_pos);
 		
 		friend GAMING_API CREATURES* CreatureFactory(uint8_t which_object, float deploy_x, float deploy_y);
 
