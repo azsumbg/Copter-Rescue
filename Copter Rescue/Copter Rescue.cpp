@@ -41,7 +41,6 @@ constexpr int no_record{ 2001 };
 constexpr int first_record{ 2002 };
 constexpr int record{ 2003 };
 
-
 WNDCLASS bWin{};
 HINSTANCE bIns{ nullptr };
 HICON bIcon{ nullptr };
@@ -135,6 +134,7 @@ dirs copter_draw_dir = dirs::right;
 int good_ammo = 0;
 int civils_needed = 0;
 int civils_saved = 0;
+int civils_killed = 0;
 
 std::vector<dll::Asset> vCivilians;
 std::vector<dll::Asset> vGoodShots;
@@ -214,6 +214,7 @@ void InitGame()
     good_ammo = 2;
     civils_needed = 10;
     civils_saved = 0;
+    civils_killed = 0;
 
     wcscpy_s(current_player, L"One Player");
     name_set = false;
@@ -800,7 +801,7 @@ void CreateResources()
             hr = iWriteFactory->CreateTextFormat(L"SEGOE PRINT", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
                 DWRITE_FONT_STRETCH_NORMAL, 16.0f, L"", &txtFormat);
             hr = iWriteFactory->CreateTextFormat(L"SEGOE PRINT", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
-                DWRITE_FONT_STRETCH_NORMAL, 32.0f, L"", &midFormat);
+                DWRITE_FONT_STRETCH_NORMAL, 22.0f, L"", &midFormat);
             hr = iWriteFactory->CreateTextFormat(L"SEGOE PRINT", NULL, DWRITE_FONT_WEIGHT_EXTRA_BLACK, DWRITE_FONT_STYLE_OBLIQUE,
                 DWRITE_FONT_STRETCH_NORMAL, 72.0f, L"", &bigFormat);
 
@@ -1006,6 +1007,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                         if (sound)mciSendString(L"play .\\res\\snd\\civkilled.wav", NULL, NULL, NULL);
                         (*civ)->Release();
                         vCivilians.erase(civ);
+                        civils_killed++;
                         (*evil)->lifes -= 2;
                         if ((*evil)->lifes <= 0)
                         {
@@ -1130,6 +1132,78 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         }
         //////////////////////////////////////////////////////////////
 
+        // STATUS BAR ********************************************
+
+        wchar_t stat_txt[250] = L"пилот: ";
+        wchar_t add[5] = L"\0";
+        int stat_size = 0;
+
+        wcscat_s(stat_txt, current_player);
+        
+        wsprintf(add, L"%d", level);
+        wcscat_s(stat_txt, L", ниво: ");
+        wcscat_s(stat_txt, add);
+
+        wsprintf(add, L"%d", civils_saved);
+        wcscat_s(stat_txt, L", спасени: ");
+        wcscat_s(stat_txt, add);
+
+        wsprintf(add, L"%d", civils_needed);
+        wcscat_s(stat_txt, L", нужни: ");
+        wcscat_s(stat_txt, add);
+
+        wsprintf(add, L"%d", good_ammo);
+        wcscat_s(stat_txt, L", бомби: ");
+        wcscat_s(stat_txt, add);
+
+        for (int i = 0; i < 250; ++i)
+        {
+            if (stat_txt[i] != '\0')stat_size++;
+            else break;
+        }
+
+        if (midFormat && hgltBrush)
+            Draw->DrawTextW(stat_txt, stat_size, midFormat, D2D1::RectF(10.0f, ground + 5.0f, scr_width, scr_height), hgltBrush);
+
+        wcscpy_s(stat_txt, L"резултат: ");
+        stat_size = 0;
+
+        wsprintf(add, L"%d", score);
+        wcscat_s(stat_txt, add);
+        for (int i = 0; i < 250; ++i)
+        {
+            if (stat_txt[i] != '\0')stat_size++;
+            else break;
+        }
+
+        if (midFormat && hgltBrush)
+            Draw->DrawTextW(stat_txt, stat_size, midFormat, D2D1::RectF(10.0f, sky + 5.0f, scr_width, scr_height), hgltBrush);
+
+        wcscpy_s(stat_txt, L"\0");
+        stat_size = 0;
+
+        if (mins < 10) wcscpy_s(stat_txt, L"0");
+        
+        wsprintf(add, L"%d", mins);
+        wcscat_s(stat_txt, add);
+
+
+        wcscat_s(stat_txt, L" : ");
+        wsprintf(add, L"%d", secs - mins * 60);
+        if (secs - mins * 60 < 10)wcscat_s(stat_txt, L"0");
+        wcscat_s(stat_txt, add);
+        for (int i = 0; i < 250; ++i)
+        {
+            if (stat_txt[i] != '\0')stat_size++;
+            else break;
+        }
+
+        if (midFormat && hgltBrush)
+            Draw->DrawTextW(stat_txt, stat_size, midFormat, D2D1::RectF(scr_width - 150.0f, sky + 5.0f, 
+                scr_width, scr_height), hgltBrush);
+
+
+        //////////////////////////////////////////////////////////////
         if (Copter)
         {
             int current_frame = Copter->GetFrame();
@@ -1257,7 +1331,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     if (Rand(0, 5) == 3)
                     {
                         if (bigFormat && hgltBrush)
-                            Draw->DrawTextW(L"ПОПРАВКА !", 11, bigFormat, D2D1::RectF(scr_width / 2 - 100.0f,
+                            Draw->DrawTextW(L"ПОПРАВКА !", 11, bigFormat, D2D1::RectF(scr_width / 2 - 150.0f,
                                 scr_height / 2 - 50.0f, scr_width, scr_height), hgltBrush);
                         Draw->EndDraw();
                         Sleep(500);
