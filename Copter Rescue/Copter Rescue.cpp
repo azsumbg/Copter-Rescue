@@ -902,7 +902,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-        if (Rand(0, 800) == 666 && vSupplies.size() < level + 2)
+        if (Rand(0, 600) == 66 && vSupplies.size() < level + 2)
             vSupplies.push_back(dll::ObjectFactory(supply, (float)(Rand(0, (int)(scr_width - 50.0f))), 0));       
         
         if (!vSupplies.empty())
@@ -1260,7 +1260,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             Draw->DrawTextW(L"ПОПРАВКА !", 11, bigFormat, D2D1::RectF(scr_width / 2 - 100.0f,
                                 scr_height / 2 - 50.0f, scr_width, scr_height), hgltBrush);
                         Draw->EndDraw();
-                        Sleep(800);
+                        Sleep(500);
                         if (Copter->lifes + 10 <= 40)Copter->lifes += 10;
                         else Copter->lifes = 40;
                     }
@@ -1270,7 +1270,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             Draw->DrawTextW(L"БОМБА !", 8, bigFormat, D2D1::RectF(scr_width / 2 - 150.0f,
                                 scr_height / 2 - 50.0f, scr_width, scr_height), hgltBrush);
                         Draw->EndDraw();
-                        Sleep(800);
+                        Sleep(500);
                         ++good_ammo;
                     }
                     break;
