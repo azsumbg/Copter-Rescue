@@ -819,7 +819,7 @@ void CreateResources()
     if (Draw && hgltBrush && bigFormat)
     {
         mciSendString(L"play .\\res\\snd\\morse.wav", NULL, NULL, NULL);
-        
+
         for (int i = 0; i < 40; ++i)
         {
             Draw->BeginDraw();
@@ -899,6 +899,22 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 vEvils.push_back(dll::CreatureFactory(evil3,
                     static_cast<float>(Rand(0, 700)), static_cast<float>(Rand((int)(ground - 150.0f), (int)(ground - 90.0f)))));
                 break;
+            }
+        }
+
+        if (Rand(0, 5000) == 666 && vSupplies.size() < level + 2)
+            vSupplies.push_back(dll::ObjectFactory(supply, (float)(Rand(0, (int)(scr_width - 50.0f))), 0));       
+        
+        if (!vSupplies.empty())
+        {
+            for (std::vector<dll::Asset>::iterator sup = vSupplies.begin(); sup < vSupplies.end(); ++sup)
+            {
+                if (!(*sup)->Move((float)(level)))
+                {
+                    (*sup)->Release();
+                    vSupplies.erase(sup);
+                    break;
+                }
             }
         }
 
@@ -1060,6 +1076,29 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (!vBadShots.empty() && Copter)
+        {
+            for (std::vector<dll::Asset>::iterator shot = vBadShots.begin(); shot < vBadShots.end(); ++shot)
+            {
+                if (!((*shot)->start.x <= Copter->end.x || (*shot)->end.x <= Copter->start.x
+                    || (*shot)->start.y <= Copter->end.y || (*shot)->end.y <= Copter->start.y))
+                {
+                    Copter->lifes -= 10;
+                    (*shot)->Release();
+                    vBadShots.erase(shot);
+                    if (Copter->lifes <= 0)
+                    {
+                        vExplosions.push_back(EXPLOSION{ Copter->start.x,Copter->start.y });
+                        if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                        ClearMem(&Copter);
+                        hero_killed = true;
+                    }
+                    break;
+                }
+            }
+        }
+
+
         // DRAW THINGS *************************************************
         Draw->BeginDraw();
         Draw->DrawBitmap(bmpField[field_frame], D2D1::RectF(0, 0, scr_width, scr_height));
@@ -1152,6 +1191,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
 
            
+        }
+
+        if (!vSupplies.empty())
+        {
+            for (int i = 0; i < vSupplies.size(); ++i)
+            {
+                int aframe = vSupplies[i]->GetFrame();
+
+                Draw->DrawBitmap(bmpSupply[aframe], Resizer(bmpSupply[aframe], vSupplies[i]->start.x, vSupplies[i]->start.y));
+                
+            }
         }
 
         if (!vBadShots.empty())
