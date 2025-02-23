@@ -212,7 +212,7 @@ void InitGame()
     mins = 0;
     secs = 180;
     good_ammo = 2;
-    civils_needed = 10;
+    civils_needed = 5;
     civils_saved = 0;
     civils_killed = 0;
 
@@ -252,6 +252,92 @@ void GameOver()
 
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
+}
+void LevelUp()
+{
+    Draw->EndDraw();
+
+    int bonus = civils_saved - civils_killed;
+    
+    while (bonus > 0)
+    {
+        if (bigFormat && hgltBrush)
+        {
+            if (sound)mciSendString(L"play .\\res\\snd\\click.wav", NULL, NULL, NULL);
+            Draw->BeginDraw();
+            Draw->DrawBitmap(bmpField[0], D2D1::RectF(0, 0, scr_width, scr_height));
+            
+            wchar_t bonus_txt[50] = L"БОНУС: ";
+            wchar_t add[10] = L"\0";
+            int bon_size = 0;
+
+            score += 10 + level;
+            --bonus;
+            wsprintf(add, L"%d", score);
+            wcscat_s(bonus_txt, add);
+            for (int i = 0; i < 50; ++i)
+            {
+                if (bonus_txt[i] != '\0')++bon_size;
+                else break;
+            }
+
+            Draw->DrawTextW(bonus_txt, bon_size, bigFormat, D2D1::RectF(200.0f, 200.0f, scr_width, scr_height), hgltBrush);
+            Draw->EndDraw();
+            Sleep(40);
+        }
+    }
+    Sleep(1000);
+    
+    Draw->BeginDraw();
+
+    Draw->DrawBitmap(bmpField[0], D2D1::RectF(0, 0, scr_width, scr_height));
+
+    if (bigFormat && hgltBrush)
+        Draw->DrawTextW(L"СЛЕДВАЩО НИВО !", 16, bigFormat, D2D1::RectF(150.0f, 200.0f, scr_width, scr_height), hgltBrush);
+    Draw->EndDraw();
+    
+    if (sound)
+    {
+        PlaySound(NULL, NULL, NULL);
+        PlaySound(L".\\res\\snd\\levelup.wav", NULL, SND_SYNC);
+        PlaySound(sound_file, NULL, SND_ASYNC | SND_LOOP);
+    }
+    else Sleep(2500);
+
+    /////////////////////////////////////////////////
+
+    ++level;
+
+    mins = 0;
+    secs = 180 + level * 15;
+    good_ammo = 2;
+    civils_needed = 5 + level;
+    civils_saved = 0;
+    civils_killed = 0;
+
+    ClearMem(&Copter);
+    Copter = dll::CreatureFactory(hero, static_cast<float>(Rand(20, 700)), 70.0f);
+
+    if (!vCivilians.empty())
+        for (int i = 0; i < vCivilians.size(); ++i)ClearMem(&vCivilians[i]);
+    vCivilians.clear();
+
+    if (!vGoodShots.empty())
+        for (int i = 0; i < vGoodShots.size(); ++i)ClearMem(&vGoodShots[i]);
+    vGoodShots.clear();
+
+    if (!vBadShots.empty())
+        for (int i = 0; i < vBadShots.size(); ++i)ClearMem(&vBadShots[i]);
+    vBadShots.clear();
+
+    if (!vSupplies.empty())
+        for (int i = 0; i < vSupplies.size(); ++i)ClearMem(&vSupplies[i]);
+    vSupplies.clear();
+
+    if (!vEvils.empty())
+        for (int i = 0; i < vEvils.size(); ++i)ClearMem(&vEvils[i]);
+    vEvils.clear();
+
 }
 
 //////////////////////////////////////////
@@ -449,7 +535,8 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                 pause = false;
                 break;
             }
-            //LevelUp();
+            civils_saved = 0;
+            LevelUp();
             break;
 
         case mExit:
@@ -882,7 +969,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             vCivilians[which]->Move((float)(level));
         }
 
-        if (vEvils.size() < level + 2 && Rand(0, 500) == 66)
+        if (vEvils.size() < level + 1 && Rand(0, 500) == 66)
         {
             switch (Rand(0, 2))
             {
@@ -1354,6 +1441,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
     /////////////////////////////////////////////////////////////////
         Draw->EndDraw();
+
+        if (civils_needed <= civils_saved)LevelUp();
     }
 
     ClearResources();
