@@ -902,7 +902,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
-        if (Rand(0, 5000) == 666 && vSupplies.size() < level + 2)
+        if (Rand(0, 800) == 666 && vSupplies.size() < level + 2)
             vSupplies.push_back(dll::ObjectFactory(supply, (float)(Rand(0, (int)(scr_width - 50.0f))), 0));       
         
         if (!vSupplies.empty())
@@ -941,7 +941,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         {
             for (std::vector<dll::Creature>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
             {
-                if (Rand(0, 500) == 66)
+                if (Rand(0, 1500) == 66)
                 {
                     vBadShots.push_back(dll::ObjectFactory(bullet, (*evil)->center.x, (*evil)->center.y, Copter->center.x,
                         Copter->center.y));
@@ -1243,6 +1243,40 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (!vSupplies.empty() && Copter)
+        {
+            for (std::vector<dll::Asset>::iterator sup = vSupplies.begin(); sup < vSupplies.end(); ++sup)
+            {
+                if (!((*sup)->start.x >= Copter->end.x || (*sup)->end.x <= Copter->start.x
+                    || (*sup)->start.y >= Copter->end.y || (*sup)->end.y <= Copter->start.y))
+                {
+                    (*sup)->Release();
+                    vSupplies.erase(sup);
+                    if (sound)mciSendString(L"play .\\res\\snd\\takeasset.wav", NULL, NULL, NULL);
+
+                    if (Rand(0, 5) == 3)
+                    {
+                        if (bigFormat && hgltBrush)
+                            Draw->DrawTextW(L"ПОПРАВКА !", 11, bigFormat, D2D1::RectF(scr_width / 2 - 100.0f,
+                                scr_height / 2 - 50.0f, scr_width, scr_height), hgltBrush);
+                        Draw->EndDraw();
+                        Sleep(800);
+                        if (Copter->lifes + 10 <= 40)Copter->lifes += 10;
+                        else Copter->lifes = 40;
+                    }
+                    else
+                    {
+                        if (bigFormat && hgltBrush)
+                            Draw->DrawTextW(L"БОМБА !", 8, bigFormat, D2D1::RectF(scr_width / 2 - 150.0f,
+                                scr_height / 2 - 50.0f, scr_width, scr_height), hgltBrush);
+                        Draw->EndDraw();
+                        Sleep(800);
+                        ++good_ammo;
+                    }
+                    break;
+                }
+            }
+        }
 
     /////////////////////////////////////////////////////////////////
         Draw->EndDraw();
