@@ -41,7 +41,7 @@ namespace cont
 
 		size_t size() const
 		{
-			return next_element;
+			return next_element - 1;
 		}
 		bool is_valid() const
 		{

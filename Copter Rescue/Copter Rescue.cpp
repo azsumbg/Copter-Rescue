@@ -71,6 +71,8 @@ bool b1Hglt = false;
 bool b2Hglt = false;
 bool b3Hglt = false;
 
+bool hero_killed = false;
+
 int field_frame = 0;
 int field_delay = 5;
 
@@ -140,6 +142,8 @@ std::vector<dll::Asset> vSupplies;
 
 std::vector<dll::Creature> vEvils;
 
+std::vector<EXPLOSION> vExplosions;
+
 ///////////////////////////////////////////
 
 template<typename T>concept HasRelease = requires(T var)
@@ -206,7 +210,7 @@ void InitGame()
     score = 0;
     mins = 0;
     secs = 180;
-    good_ammo = 0;
+    good_ammo = 2;
     civils_saved = 0;
 
     wcscpy_s(current_player, L"One Player");
@@ -477,6 +481,31 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
 
             case VK_SPACE:
                 Copter->dir = dirs::stop;
+                break;
+
+            case VK_SHIFT:
+                if (good_ammo > 0)
+                {
+                    --good_ammo;
+                    switch (Copter->dir)
+                    {
+                    case dirs::right:
+                        vGoodShots.push_back(dll::ObjectFactory(bullet, Copter->center.x, Copter->center.y,
+                            Copter->center.x - 30.0f, ground));
+                        break;
+
+                    case dirs::left:
+                        vGoodShots.push_back(dll::ObjectFactory(bullet, Copter->center.x, Copter->center.y,
+                            Copter->center.x + 30.0f, ground));
+                        break;
+
+                    case dirs::stop:
+                        vGoodShots.push_back(dll::ObjectFactory(bullet, Copter->center.x, Copter->center.y,
+                            Copter->center.x, ground));
+                        break;
+                    }
+                }
+                else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
                 break;
             }
         break;
@@ -891,7 +920,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         {
             for (std::vector<dll::Creature>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
             {
-                if (Rand(0, 150) == 66)
+                if (Rand(0, 500) == 66)
                     vBadShots.push_back(dll::ObjectFactory(bullet, (*evil)->center.x, (*evil)->center.y, Copter->center.x,
                         Copter->center.y));
             }
@@ -910,6 +939,51 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             }
         }
 
+        if (!vGoodShots.empty())
+        {
+            for (std::vector<dll::Asset>::iterator shot = vGoodShots.begin(); shot < vGoodShots.end(); shot++)
+            {
+                if (!(*shot)->Move((float)(level)))
+                {
+                    (*shot)->Release();
+                    vGoodShots.erase(shot);
+                    break;
+                }
+            }
+        }
+
+        // SHOOT TO KILL ******
+        
+        if (!vGoodShots.empty() && !vEvils.empty())
+        {
+            bool killed = false;
+
+            for (std::vector<dll::Creature>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
+            {
+                for (std::vector<dll::Asset>::iterator shot = vGoodShots.begin(); shot < vGoodShots.end(); ++shot)
+                {
+                    if (!((*evil)->start.x >= (*shot)->end.x || (*evil)->end.x <= (*shot)->start.x
+                        || (*evil)->start.y >= (*shot)->end.y || (*evil)->end.y <= (*shot)->start.y))
+                    {
+                        (*shot)->Release();
+                        vGoodShots.erase(shot);
+                        (*evil)->lifes -= 20;
+                        if ((*evil)->lifes <= 0)
+                        {
+                            if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                            score += 10 + level;
+                            vExplosions.push_back(EXPLOSION{ (*evil)->center.x, (*evil)->center.y });
+                            (*evil)->Release();
+                            vEvils.erase(evil);
+                            killed = true;
+                        }
+                        break;
+                    }
+                }
+
+                if (killed)break;
+            }
+        }
 
         // DRAW THINGS *************************************************
         Draw->BeginDraw();
@@ -956,6 +1030,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 Draw->DrawBitmap(bmpHeroL[current_frame], Resizer(bmpHeroL[current_frame], Copter->start.x, Copter->start.y));
                 break;
             }
+
+            Draw->DrawLine(D2D1::Point2F(Copter->start.x + 10.0f, Copter->end.y + 10.0f),
+                D2D1::Point2F(Copter->start.x + (float)(Copter->lifes) + 15.0f, Copter->end.y + 12.0f), hgltBrush, 8.0f);
         }
 
         if (!vCivilians.empty())
@@ -993,12 +1070,45 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     Draw->DrawBitmap(bmpEvil3[aframe], Resizer(bmpEvil3[aframe], vEvils[i]->start.x, vEvils[i]->start.y));
                     break;
                 }
+
+                Draw->DrawLine(D2D1::Point2F(vEvils[i]->start.x, vEvils[i]->end.y + 10.0f),
+                    D2D1::Point2F(vEvils[i]->start.x + (float)(vEvils[i]->lifes) + 40.0f, vEvils[i]->end.y + 10.0f), 
+                    hgltBrush, 8.0f);
             }
+
+           
         }
 
         if (!vBadShots.empty())
             for (int i = 0; i < vBadShots.size(); ++i)Draw->DrawBitmap(bmpBullet, D2D1::RectF(vBadShots[i]->start.x,
                 vBadShots[i]->start.y, vBadShots[i]->end.x, vBadShots[i]->end.y));
+
+        if (!vGoodShots.empty())
+            for (int i = 0; i < vGoodShots.size(); ++i)Draw->DrawBitmap(bmpBullet, D2D1::RectF(vGoodShots[i]->start.x,
+                vGoodShots[i]->start.y, vGoodShots[i]->end.x, vGoodShots[i]->end.y));
+
+        if (!vExplosions.empty())
+        {
+            for (std::vector<EXPLOSION>::iterator expl = vExplosions.begin(); expl < vExplosions.end(); expl++)
+            {
+                expl->frame_delay--;
+                if (expl->frame_delay < 0)
+                {
+                    expl->frame_delay = 3;
+                    ++expl->frame;
+                    if (expl->frame > 23)
+                    {
+                        Draw->DrawBitmap(bmpExplosion[23], Resizer(bmpExplosion[23], 
+                            expl->where.x, expl->where.y));
+                        Draw->EndDraw();
+                        vExplosions.erase(expl);
+                        if (hero_killed)GameOver();
+                        break;
+                    }
+                }
+                Draw->DrawBitmap(bmpExplosion[expl->frame], Resizer(bmpExplosion[expl->frame], expl->where.x, expl->where.y));
+            }
+        }
 
 
     /////////////////////////////////////////////////////////////////
