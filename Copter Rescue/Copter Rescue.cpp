@@ -133,6 +133,7 @@ dll::Creature Copter;
 dirs copter_draw_dir = dirs::right;
 
 int good_ammo = 0;
+int civils_needed = 0;
 int civils_saved = 0;
 
 std::vector<dll::Asset> vCivilians;
@@ -211,6 +212,7 @@ void InitGame()
     mins = 0;
     secs = 180;
     good_ammo = 2;
+    civils_needed = 10;
     civils_saved = 0;
 
     wcscpy_s(current_player, L"One Player");
@@ -504,6 +506,7 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
                             Copter->center.x, ground));
                         break;
                     }
+                    if (sound)mciSendString(L"play .\\res\\snd\\shot.wav", NULL, NULL, NULL);
                 }
                 else if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
                 break;
@@ -912,6 +915,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 {
                     vBadShots.push_back(dll::ObjectFactory(bullet, (*evil)->center.x, (*evil)->center.y, Copter->center.x,
                         Copter->center.y));
+                    if (sound)mciSendString(L"play .\\res\\snd\\shot.wav", NULL, NULL, NULL);
+
                 }
                 else (*evil)->Move((float)(level));
             }
@@ -921,8 +926,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
             for (std::vector<dll::Creature>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
             {
                 if (Rand(0, 500) == 66)
+                {
                     vBadShots.push_back(dll::ObjectFactory(bullet, (*evil)->center.x, (*evil)->center.y, Copter->center.x,
                         Copter->center.y));
+                    if (sound)mciSendString(L"play .\\res\\snd\\shot.wav", NULL, NULL, NULL);
+                }
             }
         }
 
@@ -949,6 +957,54 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     vGoodShots.erase(shot);
                     break;
                 }
+            }
+        }
+
+        if (!vCivilians.empty() && Copter)
+        {
+            for (std::vector<dll::Asset>::iterator civ = vCivilians.begin(); civ < vCivilians.end(); ++civ)
+            {
+                if (!(Copter->start.x >= (*civ)->end.x || Copter->end.x <= (*civ)->start.x
+                    || Copter->start.y >= (*civ)->end.y || Copter->end.y <= (*civ)->start.y))
+                {
+                    if (sound)mciSendString(L"play .\\res\\snd\\civsaved.wav", NULL, NULL, NULL);
+                    (*civ)->Release();
+                    vCivilians.erase(civ);
+                    ++civils_saved;
+                    break;
+                }
+            }
+        }
+
+        if (!vCivilians.empty() && !vEvils.empty())
+        {
+            bool killed = false;
+
+            for (std::vector<dll::Asset>::iterator civ = vCivilians.begin(); civ < vCivilians.end(); ++civ)
+            {
+                for (std::vector<dll::Creature>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
+                {
+                    if (!((*evil)->start.x >= (*civ)->end.x || (*evil)->end.x <= (*civ)->start.x
+                        || (*evil)->start.y >= (*civ)->end.y || (*evil)->end.y <= (*civ)->start.y))
+                    {
+                        if (sound)mciSendString(L"play .\\res\\snd\\civkilled.wav", NULL, NULL, NULL);
+                        (*civ)->Release();
+                        vCivilians.erase(civ);
+                        (*evil)->lifes -= 2;
+                        if ((*evil)->lifes <= 0)
+                        {
+                            if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                            score += 10 + level;
+                            vExplosions.push_back(EXPLOSION{ (*evil)->center.x, (*evil)->center.y });
+                            (*evil)->Release();
+                            vEvils.erase(evil);
+                            killed = true;
+                        }
+                        killed = true;
+                        break;
+                    }
+                }
+                if (killed) break;
             }
         }
 
@@ -982,6 +1038,25 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                 }
 
                 if (killed)break;
+            }
+        }
+
+        if (!vEvils.empty() && Copter)
+        {
+            for (std::vector<dll::Creature>::iterator evil = vEvils.begin(); evil < vEvils.end(); ++evil)
+            {
+                if (!((*evil)->start.x >= Copter->end.x || (*evil)->end.x <= Copter->start.x
+                    || (*evil)->start.y >= Copter->end.y || (*evil)->end.y <= Copter->start.y))
+                {
+                    vExplosions.push_back(EXPLOSION{ (*evil)->start.x,(*evil)->start.y });
+                    vExplosions.push_back(EXPLOSION{ Copter->start.x,Copter->start.y });
+                    if (sound)mciSendString(L"play .\\res\\snd\\explosion.wav", NULL, NULL, NULL);
+                    (*evil)->Release();
+                    vEvils.erase(evil);
+                    ClearMem(&Copter);
+                    hero_killed = true;
+                    break;
+                }
             }
         }
 
@@ -1102,7 +1177,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                             expl->where.x, expl->where.y));
                         Draw->EndDraw();
                         vExplosions.erase(expl);
-                        if (hero_killed)GameOver();
+                        if (hero_killed)
+                        {
+                            if (sound)
+                            {
+                                PlaySound(NULL, NULL, NULL);
+                                PlaySound(L".\\res\\snd\\killed.wav", NULL, SND_SYNC);
+                            }
+                            GameOver();
+                        }
                         break;
                     }
                 }
