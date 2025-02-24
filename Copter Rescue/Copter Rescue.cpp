@@ -408,7 +408,6 @@ void LevelUp()
     if (!vEvils.empty())
         for (int i = 0; i < vEvils.size(); ++i)ClearMem(&vEvils[i]);
     vEvils.clear();
-
 }
 void HallOfFame()
 {
@@ -460,6 +459,169 @@ void HallOfFame()
         if (sound)mciSendString(L"play .\\res\\snd\\showrec.wav", NULL, NULL, NULL);
         Sleep(3000);
     }
+}
+void SaveGame()
+{
+    int result{ 0 };
+    CheckFile(save_file, &result);
+    if (result == FILE_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+        if (MessageBox(bHwnd, L"Съществува записана игра, която ще изгубиш !\n\nНаистина ли я презаписваш ?", L"Презапис",
+            MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+
+    std::wofstream save(save_file);
+
+    save << level << std::endl;
+    save << secs << std::endl;
+    save << score << std::endl;
+    save << civils_needed << std::endl;
+    save << civils_killed << std::endl;
+    save << civils_saved << std::endl;
+    save << good_ammo << std::endl;
+
+    for (int i = 0; i < 16; ++i)save << static_cast<int>(current_player[i]) << std::endl;
+    save << name_set << std::endl;
+
+    save << hero_killed << std::endl;
+    save << Copter->start.x << std::endl;
+    save << Copter->start.y << std::endl;
+    save << Copter->lifes << std::endl;
+
+    save << vCivilians.size() << std::endl;
+    if(!vCivilians.empty())
+        for (int i = 0; i < vCivilians.size(); ++i)
+        {
+            save << vCivilians[i]->start.x << std::endl;
+            save << vCivilians[i]->start.y << std::endl;
+        }
+
+    save << vEvils.size() << std::endl;
+    if (!vEvils.empty())
+        for (int i = 0; i < vEvils.size(); ++i)
+        {
+            save << static_cast<int>(vEvils[i]->GetType()) << std::endl;
+            save << vEvils[i]->start.x << std::endl;
+            save << vEvils[i]->start.y << std::endl;
+            save << vEvils[i]->lifes << std::endl;
+        }
+
+    if (sound)mciSendStringW(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+
+    MessageBox(bHwnd, L"Играта е запазена !", L"Запис", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
+}
+void LoadGame()
+{
+    int result{ 0 };
+    CheckFile(save_file, &result);
+    if (result == FILE_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\exclamation.wav", NULL, NULL, NULL);
+        if (MessageBox(bHwnd, L"Ако продължиш ще изгубиш прогреса по тази игра !\n\nНаистина ли я презаписваш ?", L"Презапис",
+            MB_YESNO | MB_APPLMODAL | MB_ICONQUESTION) == IDNO)return;
+    }
+    else
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+        MessageBox(bHwnd, L"Все още няма записана игра !\n\nПостарай се повече !", L"Липсва файл !",
+            MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+
+    /////////////////////////////////////////////////////
+
+    ClearMem(&Copter);
+    
+    if (!vCivilians.empty())
+        for (int i = 0; i < vCivilians.size(); ++i)ClearMem(&vCivilians[i]);
+    vCivilians.clear();
+
+    if (!vGoodShots.empty())
+        for (int i = 0; i < vGoodShots.size(); ++i)ClearMem(&vGoodShots[i]);
+    vGoodShots.clear();
+
+    if (!vBadShots.empty())
+        for (int i = 0; i < vBadShots.size(); ++i)ClearMem(&vBadShots[i]);
+    vBadShots.clear();
+
+    if (!vSupplies.empty())
+        for (int i = 0; i < vSupplies.size(); ++i)ClearMem(&vSupplies[i]);
+    vSupplies.clear();
+
+    if (!vEvils.empty())
+        for (int i = 0; i < vEvils.size(); ++i)ClearMem(&vEvils[i]);
+    vEvils.clear();
+
+    /////////////////////////////////////////////////////
+
+    std::wifstream save(save_file);
+
+    save >> level;
+    save >> secs;
+    save >> score;
+    save >> civils_needed;
+    save >> civils_killed;
+    save >> civils_saved;
+    save >> good_ammo;
+
+    for (int i = 0; i < 16; ++i)
+    {
+        int letter = 0;
+
+        save >> letter;
+        current_player[i] = static_cast<wchar_t>(letter);
+    }
+    save >> name_set;
+
+    save >> hero_killed;
+    if (hero_killed)GameOver();
+    else
+    {
+        float temp_x = 0;
+        float temp_y = 0;
+        int temp_lifes = 0;
+
+        save >> temp_x;
+        save >> temp_y;
+        save >> temp_lifes;
+        Copter = dll::CreatureFactory(hero, temp_x, temp_y);
+        Copter->lifes = temp_lifes;
+    }
+    save >> result;
+    if (result > 0)
+        for (int i = 0; i < result; ++i)
+        {
+            float temp_x = 0;
+            float temp_y = 0;
+
+            save >> temp_x;
+            save >> temp_y;
+
+            vCivilians.push_back(dll::ObjectFactory(civilian, temp_x, temp_y));
+        }
+
+    save >> result;
+    if (result > 0)
+        for (int i = 0; i < result; ++i)
+        {
+            int temp_type = 0;
+            float temp_x = 0;
+            float temp_y = 0;
+            int temp_lifes = 0;
+
+            save >> temp_type;
+            save >> temp_x;
+            save >> temp_y;
+            save >> temp_lifes;
+ 
+            vEvils.push_back(dll::CreatureFactory(static_cast<uint8_t>(temp_type), temp_x, temp_y));
+            vEvils.back()->lifes = temp_lifes;
+        }
+
+    if (sound)mciSendStringW(L"play .\\res\\snd\\save.wav", NULL, NULL, NULL);
+
+    MessageBox(bHwnd, L"Играта е заредена !", L"Зареждане", MB_OK | MB_APPLMODAL | MB_ICONINFORMATION);
 }
 
 //////////////////////////////////////////
@@ -665,6 +827,17 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             SendMessage(hwnd, WM_CLOSE, NULL, NULL);
             break;
 
+        case mSave:
+            pause = true;
+            SaveGame();
+            pause = false;
+            break;
+
+        case mLoad:
+            pause = true;
+            LoadGame();
+            pause = false;
+            break;
 
         case mHoF:
             pause = true;
@@ -728,6 +901,24 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             }
         break;
 
+    case WM_LBUTTONDOWN:
+        if (HIWORD(wParam) <= 50)
+        {
+            if (LOWORD(lParam) >= b1TxtRect.left && LOWORD(lParam) <= b1TxtRect.right)
+            {
+                if (name_set)
+                {
+                    if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+                    break;
+                }
+
+                if (DialogBox(bIns, MAKEINTRESOURCE(IDD_PLAYER), hwnd, &DlgProc) == IDOK)name_set = true;
+                break;
+            }
+
+
+        }
+        break;
 
     default: return DefWindowProc(hwnd, ReceivedMsg, wParam, lParam);
     }
