@@ -243,12 +243,83 @@ void InitGame()
         for (int i = 0; i < vEvils.size(); ++i)ClearMem(&vEvils[i]);
     vEvils.clear();
 }
+BOOL CheckRecord()
+{
+    if (score < 1)return no_record;
 
+    int result{ 0 };
+    CheckFile(record_file, &result);
+
+    if (result == FILE_NOT_EXIST)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return first_record;
+    }
+    else
+    {
+        std::wifstream check(record_file);
+        check >> result;
+        check.close();
+    }
+
+    if (score > result)
+    {
+        std::wofstream rec(record_file);
+        rec << score << std::endl;
+        for (int i = 0; i < 16; ++i)rec << static_cast<int>(current_player[i]) << std::endl;
+        rec.close();
+        return record;
+    }
+
+    return no_record;
+}
 void GameOver()
 {
     PlaySound(NULL, NULL, NULL);
     KillTimer(bHwnd, bTimer);
 
+    switch (CheckRecord())
+    {
+    case no_record:
+        if (bigFormat && hgltBrush)
+        {
+            Draw->BeginDraw();
+            Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+            Draw->DrawTextW(L"ИЗГУБИ ИГРАТА !", 16, bigFormat, D2D1::RectF(200.0f, 200.0f, scr_width, scr_height), hgltBrush);
+            Draw->EndDraw();
+            if (sound)PlaySound(L".\\res\\snd\\loose.wav", NULL, SND_SYNC);
+            else Sleep(3000);
+        }
+        break;
+
+    case first_record:
+        if (bigFormat && hgltBrush)
+        {
+            Draw->BeginDraw();
+            Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+            Draw->DrawTextW(L"ПЪРВИ РЕКОРД !", 15, bigFormat, D2D1::RectF(200.0f, 200.0f, scr_width, scr_height), hgltBrush);
+            Draw->EndDraw();
+            if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_SYNC);
+            else Sleep(3000);
+        }
+        break;
+
+    case record:
+        if (bigFormat && hgltBrush)
+        {
+            Draw->BeginDraw();
+            Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+            Draw->DrawTextW(L"НОВ СВЕТОВЕН РЕКОРД !", 22, bigFormat, D2D1::RectF(100.0f, 200.0f, scr_width, scr_height), 
+                hgltBrush);
+            Draw->EndDraw();
+            if (sound)PlaySound(L".\\res\\snd\\record.wav", NULL, SND_SYNC);
+            else Sleep(3000);
+        }
+        break;
+    }
 
     bMsg.message = WM_QUIT;
     bMsg.wParam = 0;
@@ -310,7 +381,7 @@ void LevelUp()
 
     mins = 0;
     secs = 180 + level * 15;
-    good_ammo = 2;
+    if (good_ammo < 2) good_ammo = 2;
     civils_needed = 5 + level;
     civils_saved = 0;
     civils_killed = 0;
@@ -338,6 +409,57 @@ void LevelUp()
         for (int i = 0; i < vEvils.size(); ++i)ClearMem(&vEvils[i]);
     vEvils.clear();
 
+}
+void HallOfFame()
+{
+    int result{ 0 };
+    CheckFile(record_file, &result);
+    if (result == FILE_NOT_EXIST)
+    {
+        if (sound)mciSendString(L"play .\\res\\snd\\negative.wav", NULL, NULL, NULL);
+        MessageBox(bHwnd, L"Все още няма рекорд !\n\nПостарай се повече !", L"Липсва файл !", 
+            MB_OK | MB_APPLMODAL | MB_ICONASTERISK);
+        return;
+    }
+
+    std::wifstream rec(record_file);
+
+    wchar_t hof_txt[100] = L"НАЙ-ДОБЪР ПИЛОТ: ";
+    wchar_t saved_player[16] = L"\0";
+    wchar_t saved_score[5] = L"\0";
+
+    rec >> result;
+    wsprintf(saved_score, L"%d", result);
+    result = 0;
+
+    for (int i = 0; i < 16; ++i)
+    {
+        int letter = 0;
+        rec >> letter;
+        saved_player[i] = static_cast<wchar_t>(letter);
+    }
+
+    rec.close();
+
+    wcscat_s(hof_txt, saved_player);
+    wcscat_s(hof_txt, L"\n\nСВЕТОВЕН РЕКОРД: ");
+    wcscat_s(hof_txt, saved_score);
+
+    for (int i = 0; i < 100; ++i)
+    {
+        if (hof_txt[i] != '\0')++result;
+        else break;
+    }
+
+    if (midFormat && hgltBrush)
+    {
+        Draw->BeginDraw();
+        Draw->DrawBitmap(bmpIntro[0], D2D1::RectF(0, 0, scr_width, scr_height));
+        Draw->DrawTextW(hof_txt, result, midFormat, D2D1::RectF(200.0f, 200.0f, scr_width, scr_height), hgltBrush);
+        Draw->EndDraw();
+        if (sound)mciSendString(L"play .\\res\\snd\\showrec.wav", NULL, NULL, NULL);
+        Sleep(3000);
+    }
 }
 
 //////////////////////////////////////////
@@ -544,6 +666,11 @@ LRESULT CALLBACK WinProc(HWND hwnd, UINT ReceivedMsg, WPARAM wParam, LPARAM lPar
             break;
 
 
+        case mHoF:
+            pause = true;
+            HallOfFame();
+            pause = false;
+            break;
         }
         break;
 
@@ -1075,6 +1202,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
                     (*civ)->Release();
                     vCivilians.erase(civ);
                     ++civils_saved;
+                    score += level;
                     break;
                 }
             }
